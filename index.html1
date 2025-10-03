@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مولد ومعدّل الصور بالذكاء الاصطناعي</title>
+    <!-- تحميل خط القاهرة (Cairo) لجمالية النص العربي -->
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+    <!-- تحميل Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+            background-color: #F7FAFC; /* Gray-50 */
+            min-height: 100vh;
+            /* Hide content initially until splash screen is done */
+            opacity: 0; 
+            transition: opacity 0.5s ease-in-out;
+        }
+        /* Custom styles for modern input and buttons */
+        .input-style {
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+        }
+        .input-style:focus {
+            border-color: #2563EB; /* Blue-600 */
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.5);
+        }
+        .file-input-label {
+            cursor: pointer;
+            border: 2px dashed #9CA3AF; /* Gray-400 */
+            transition: all 0.2s ease;
+        }
+        .file-input-label:hover {
+            border-color: #2563EB;
+            background-color: #F3F4F6;
+        }
+        /* Ensure markdown formatting for analysis output is respected */
+        #analysis-text {
+             text-align: right;
+        }
+        #analysis-text ul {
+            list-style-type: disc;
+            margin-right: 20px;
+            padding-right: 20px;
+        }
+        #analysis-text li {
+            margin-bottom: 8px;
+        }
+
+        /* --- Splash Screen Styles --- */
+        #splash-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #2563EB; /* Primary blue background */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            transition: opacity 0.5s ease-out;
+        }
+        .splash-text {
+            font-size: 3rem; /* Large text size */
+            color: #FFFFFF; /* White text */
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            animation: pulse 1.5s infinite; /* Simple animation to make it dynamic */
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.9; }
+        }
+        
+        /* --- Corner Footer Style --- */
+        #corner-footer {
+            position: fixed;
+            bottom: 0;
+            right: 0;
+            background-color: #ffffff;
+            color: #4B5563; /* Gray-600 */
+            padding: 8px 12px;
+            font-size: 0.8rem;
+            border-top-right-radius: 8px;
+            border-top-left-radius: 8px;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 50; 
+            border-right: 1px solid #E5E7EB;
+            border-top: 1px solid #E5E7EB;
+        }
+    </style>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary': '#2563EB', // Blue-600
+                        'primary-dark': '#1D4ED8', // Blue-700
+                    },
+                }
+            }
+        }
+    </script>
+    <!-- تحميل مكتبة Font Awesome للأيقونات -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+</head>
+<!-- The main content is now wrapped in a container that will be shown after the splash screen -->
+<body id="main-app-content" class="flex flex-col items-center p-4" style="opacity: 0;">
+
+    <!-- Splash Screen Element -->
+    <div id="splash-screen">
+        <h1 class="splash-text">yazan tek</h1>
+    </div>
+    
+    <!-- Corner Footer (yazan tek) -->
+    <div id="corner-footer" class="hidden md:block">
+        <p class="font-bold text-sm text-primary">yazan tek</p>
+    </div>
+    
+    <!-- Header Section -->
+    <header class="w-full max-w-4xl text-center mb-8 pt-4">
+        <h1 class="text-3xl font-extrabold text-gray-900 mb-2 leading-snug">
+            <span class="text-4xl">مولد ومعدّل الصور بالذكاء الاصطناعي</span>
+            <div class="flex items-center justify-center mt-2 pb-2 border-b-2 border-primary mx-auto w-40">
+                <i class="fas fa-magic text-primary text-2xl ml-3"></i>
+                <span class="text-2xl font-bold text-gray-700">yazan tek</span>
+            </div>
+        </h1>
+        <p class="text-gray-600 text-lg">ارفع صورة أساسية وصورة إضافية واكتب وصفاً لدمجهما.</p>
+    </header>
+
+    <div class="w-full max-w-4xl bg-white p-6 md:p-10 rounded-3xl shadow-2xl border border-gray-100">
+
+        <!-- Input and Control Form -->
+        <form id="image-form" class="space-y-6">
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Input File Upload 1 (Main Image) -->
+                <div>
+                    <label for="image-upload-1" class="block text-lg font-semibold text-gray-800 mb-2">الصورة الأساسية (الخلفية/المشهد):</label>
+                    <label for="image-upload-1" id="file-label-1" class="file-input-label flex flex-col items-center justify-center h-24 rounded-xl">
+                        <i class="fas fa-upload text-2xl text-gray-500 mb-1"></i>
+                        <span id="file-name-display-1" class="text-gray-700 text-sm font-medium">انقر لرفع الصورة الأولى (اختياري)</span>
+                    </label>
+                    <input type="file" id="image-upload-1" accept="image/png, image/jpeg" class="hidden">
+                    <div id="image-preview-container-1" class="mt-4 hidden border border-gray-300 rounded-xl p-2 bg-gray-50">
+                        <img id="image-preview-1" src="" alt="معاينة الصورة المرفوعة الأولى" class="w-24 h-24 object-cover rounded-lg mx-auto">
+                    </div>
+                </div>
+
+                <!-- Input File Upload 2 (Second Image for Merging) -->
+                <div>
+                    <label for="image-upload-2" class="block text-lg font-semibold text-gray-800 mb-2">الصورة الإضافية للدمج (عنصر/موضوع):</label>
+                    <label for="image-upload-2" id="file-label-2" class="file-input-label flex flex-col items-center justify-center h-24 rounded-xl">
+                        <i class="fas fa-upload text-2xl text-gray-500 mb-1"></i>
+                        <span id="file-name-display-2" class="text-gray-700 text-sm font-medium">انقر لرفع الصورة الثانية (اختياري)</span>
+                    </label>
+                    <input type="file" id="image-upload-2" accept="image/png, image/jpeg" class="hidden">
+                    <div id="image-preview-container-2" class="mt-4 hidden border border-gray-300 rounded-xl p-2 bg-gray-50">
+                        <img id="image-preview-2" src="" alt="معاينة الصورة المرفوعة الثانية" class="w-24 h-24 object-cover rounded-lg mx-auto">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Prompt Input -->
+            <div>
+                <label for="prompt" class="block text-lg font-semibold text-gray-800 mb-2">اكتب وصف الصورة بالتفصيل (لدمج الصورتين):</label>
+                <textarea id="prompt" rows="3" placeholder="مثال: ادمج العنصر في الصورة الثانية مع الخلفية في الصورة الأولى لإنشاء منظر طبيعي خيالي، بأسلوب فن رقمي 4K." 
+                          class="input-style w-full p-4 border border-gray-300 rounded-xl resize-none focus:outline-none"></textarea>
+                
+                <!-- NEW: Prompt Enhancement Button -->
+                <button type="button" id="enhance-prompt-btn" 
+                        class="mt-2 text-sm bg-purple-100 text-purple-800 font-semibold py-2 px-4 rounded-lg hover:bg-purple-200 transition duration-150 flex items-center">
+                    <i class="fas fa-sparkles ml-2"></i>
+                    ✨ اقتراح وصف مُحسّن لإنشاء صورة
+                </button>
+            </div>
+            
+            <button type="submit" id="generate-button" 
+                    class="w-full bg-primary text-white font-bold py-3 rounded-xl hover:bg-primary-dark transition duration-300 shadow-lg flex items-center justify-center text-xl">
+                <i class="fas fa-wand-magic-sparkles ml-2"></i>
+                توليد/دمج الصور
+            </button>
+            <p id="error-message" class="text-red-600 text-center font-medium hidden">
+                <i class="fas fa-exclamation-circle ml-1"></i>
+            </p>
+        </form>
+
+        <hr class="my-8 border-gray-200">
+
+        <!-- Image Output and Loading Area -->
+        <div class="text-center">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">النتيجة</h2>
+
+            <!-- Loading Indicator -->
+            <div id="loading-indicator" class="hidden flex flex-col items-center justify-center p-12 bg-blue-50 rounded-xl border border-blue-200">
+                <svg class="animate-spin h-10 w-10 text-primary mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <p class="text-primary font-semibold">جاري إنشاء تحفتك الفنية أو دمج الصور... قد يستغرق الأمر بضع ثوانٍ.</p>
+            </div>
+            
+            <!-- Default Placeholder Message -->
+            <div id="placeholder-message" class="p-12 bg-gray-50 rounded-xl border border-gray-200">
+                <i class="fas fa-image text-5xl text-gray-400 mb-3"></i>
+                <p class="text-gray-600 font-medium">ستظهر الصورة المولدة هنا بمجرد الضغط على زر "توليد/دمج الصور".</p>
+            </div>
+
+            <!-- Generated Image Container -->
+            <div id="image-output-container" class="hidden">
+                <img id="generated-image" src="" alt="صورة تم توليدها بالذكاء الاصطناعي" class="w-full h-auto rounded-xl shadow-2xl border border-gray-200 object-contain">
+                
+                <!-- NEW: Captioning Button -->
+                <button type="button" id="analyze-image-btn" 
+                        class="mt-4 text-sm bg-green-100 text-green-800 font-semibold py-2 px-4 rounded-lg hover:bg-green-200 transition duration-150 flex items-center mx-auto">
+                    <i class="fas fa-feather-alt ml-2"></i>
+                    ✨ تحليل الصورة وكتابة وصف لها (Gemini)
+                </button>
+                
+                <!-- NEW: Analysis Output -->
+                <div id="analysis-output" class="mt-4 p-4 bg-gray-50 rounded-xl border border-gray-200 text-right text-gray-700 hidden">
+                    <p id="analysis-text" class="whitespace-pre-wrap text-right"></p>
+                    <div id="analysis-loading" class="hidden text-center text-green-700">
+                        <svg class="animate-spin h-5 w-5 inline ml-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        جاري التحليل...
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+    
+    <!-- Footer Section (Hidden - Only for Mobile, since corner footer is for desktop) -->
+    <footer class="w-full max-w-4xl text-center mt-8 pt-6 pb-4 border-t border-gray-300 md:hidden">
+        <p class="text-gray-600 text-md font-semibold mb-1">
+            صاحب الموقع: 
+            <span class="text-primary">yazan tek</span>
+        </p>
+        <p class="text-gray-500 text-xs">
+             Powered by Gemini API
+        </p>
+    </footer>
+
+    <script type="module">
+        // تحديد العناصر الرئيسية في DOM
+        const form = document.getElementById('image-form');
+        const promptInput = document.getElementById('prompt');
+        const generateButton = document.getElementById('generate-button');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const imageOutputContainer = document.getElementById('image-output-container');
+        const generatedImage = document.getElementById('generated-image');
+        const placeholderMessage = document.getElementById('placeholder-message');
+        const errorMessageDisplay = document.getElementById('error-message');
+        
+        // عناصر الصورة الأولى
+        const imageUpload1 = document.getElementById('image-upload-1');
+        const imagePreview1 = document.getElementById('image-preview-1');
+        const imagePreviewContainer1 = document.getElementById('image-preview-container-1');
+        const fileNameDisplay1 = document.getElementById('file-name-display-1');
+        
+        // عناصر الصورة الثانية
+        const imageUpload2 = document.getElementById('image-upload-2');
+        const imagePreview2 = document.getElementById('image-preview-2');
+        const imagePreviewContainer2 = document.getElementById('image-preview-container-2');
+        const fileNameDisplay2 = document.getElementById('file-name-display-2');
+
+
+        // العناصر الجديدة لميزات Gemini
+        const enhancePromptBtn = document.getElementById('enhance-prompt-btn');
+        const analyzeImageBtn = document.getElementById('analyze-image-btn');
+        const analysisOutput = document.getElementById('analysis-output');
+        const analysisText = document.getElementById('analysis-text');
+        const analysisLoading = document.getElementById('analysis-loading');
+        
+        // عناصر شاشة الترحيب
+        const splashScreen = document.getElementById('splash-screen');
+        const mainAppContent = document.getElementById('main-app-content');
+
+
+        // نموذج Gemini Image-to-Image / Text-to-Image
+        const IMAGE_MODEL = 'gemini-2.5-flash-image-preview'; 
+        // نموذج Gemini لتحسين الوصف والتحليل النصي
+        const LLM_TEXT_MODEL = 'gemini-2.5-flash-preview-05-20'; 
+        
+        // ********** مهم: الصق مفتاح API الخاص بك هنا **********
+        // ********** يجب عليك الحصول على مفتاح من Google AI Studio **********
+        const apiKey = "AIzaSyAh99vjB72gwGe7E9wilzstXAlbvFpZCvg"; 
+        // *************************************************************
+
+        let base64Image1 = null; // لتخزين الصورة الأولى بصيغة Base64
+        let base64Image2 = null; // لتخزين الصورة الثانية بصيغة Base64
+
+        /**
+         * دالة مساعدة لإدارة عرض رسائل الخطأ.
+         */
+        function displayError(message) {
+            if (message) {
+                errorMessageDisplay.textContent = `! ${message}`;
+                errorMessageDisplay.classList.remove('hidden');
+            } else {
+                errorMessageDisplay.classList.add('hidden');
+                errorMessageDisplay.textContent = '';
+            }
+        }
+
+        /**
+         * دالة لقراءة الملف وتحويله إلى Base64.
+         */
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => {
+                    const [mimeTypePart, base64DataPart] = reader.result.split(',');
+                    const mimeType = mimeTypePart.split(':')[1].split(';')[0];
+                    resolve({ base64Data: base64DataPart, mimeType });
+                };
+                reader.onerror = error => reject(error);
+            });
+        }
+
+        /**
+         * معالج حدث تغيير مدخل الملف لمدخل الصورة العامة.
+         * @param {Event} e - حدث التغيير
+         * @param {number} base64VarIndex - مؤشر لتحديد أي متغير Base64 يتم تحديثه (1 أو 2)
+         */
+        async function handleImageUpload(e, base64VarIndex) {
+            const file = e.target.files[0];
+            const uploadInput = e.target;
+            
+            let nameDisplay, previewContainer, previewImage, defaultName;
+
+            if (base64VarIndex === 1) {
+                base64Image1 = null;
+                nameDisplay = fileNameDisplay1;
+                previewContainer = imagePreviewContainer1;
+                previewImage = imagePreview1;
+                defaultName = "انقر لرفع الصورة الأولى (اختياري)";
+            } else {
+                base64Image2 = null;
+                nameDisplay = fileNameDisplay2;
+                previewContainer = imagePreviewContainer2;
+                previewImage = imagePreview2;
+                defaultName = "انقر لرفع الصورة الثانية (اختياري)";
+            }
+
+            if (file) {
+                if (!file.type.startsWith('image/')) {
+                    displayError("الرجاء اختيار ملف صورة صالح (PNG أو JPEG).");
+                    uploadInput.value = '';
+                    previewContainer.classList.add('hidden');
+                    return;
+                }
+
+                try {
+                    const { base64Data, mimeType } = await fileToBase64(file);
+                    
+                    if (base64VarIndex === 1) {
+                        base64Image1 = { data: base64Data, mimeType };
+                    } else {
+                        base64Image2 = { data: base64Data, mimeType };
+                    }
+                    
+                    // عرض المعاينة وتحديث اسم الملف
+                    previewImage.src = `data:${mimeType};base64,${base64Data}`;
+                    previewContainer.classList.remove('hidden');
+                    nameDisplay.textContent = file.name;
+
+                } catch (error) {
+                    console.error("Error reading file:", error);
+                    displayError("فشل في قراءة ملف الصورة.");
+                    uploadInput.value = '';
+                    if (base64VarIndex === 1) { base64Image1 = null; } 
+                    else { base64Image2 = null; }
+                }
+            } else {
+                // إذا لم يتم اختيار ملف
+                previewContainer.classList.add('hidden');
+                nameDisplay.textContent = defaultName;
+                if (base64VarIndex === 1) { base64Image1 = null; } 
+                else { base64Image2 = null; }
+            }
+            displayError(null);
+            // إخفاء التحليل السابق عند رفع صورة جديدة
+            analysisOutput.classList.add('hidden');
+        }
+
+        // إرفاق معالجات الأحداث لمدخلات الصور
+        imageUpload1.addEventListener('change', (e) => handleImageUpload(e, 1));
+        imageUpload2.addEventListener('change', (e) => handleImageUpload(e, 2));
+        
+        /**
+         * دالة رئيسية لتوليد الصورة.
+         */
+        async function generateImageWithRetry(userPrompt, inputImage1, inputImage2, maxRetries = 5, delay = 1000) {
+            // ** التحقق من مفتاح API قبل أي محاولة اتصال **
+            if (apiKey === "YOUR_GEMINI_API_KEY_HERE" || apiKey.length < 10) {
+                 throw new Error("لم يتم تحديد مفتاح API. الرجاء وضع مفتاحك الخاص في المتغير 'apiKey' ضمن الكود.");
+            }
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${IMAGE_MODEL}:generateContent?key=${apiKey}`;
+
+            // 1. Add the text prompt first
+            const parts = [{ text: userPrompt }];
+
+            // 2. Add Image 1 if present
+            if (inputImage1) {
+                parts.push({
+                    inlineData: {
+                        mimeType: inputImage1.mimeType,
+                        data: inputImage1.data
+                    }
+                });
+            }
+
+            // 3. Add Image 2 if present
+            if (inputImage2) {
+                parts.push({
+                    inlineData: {
+                        mimeType: inputImage2.mimeType,
+                        data: inputImage2.data
+                    }
+                });
+            }
+
+            const payload = { 
+                contents: [{ role: "user", parts: parts }],
+                generationConfig: {
+                    responseModalities: ['TEXT', 'IMAGE'] // طلب استجابة نصية وصورية
+                }
+            };
+
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok && response.status !== 429) {
+                        const errorData = await response.json();
+                         // تحسين إظهار رسالة 403 (عدم وجود مفتاح)
+                        if (response.status === 403 && errorData.error?.message?.includes("unregistered callers")) {
+                            throw new Error("فشل الاتصال: رمز الخطأ 403. تأكد من أن مفتاح API الذي وضعته في الكود صحيح ومفعَّل.");
+                        }
+                        throw new Error(`API Error: ${response.status} - ${errorData.error?.message || response.statusText}`);
+                    }
+
+                    if (response.status === 429) {
+                        if (i < maxRetries - 1) {
+                            console.log(`Rate limit exceeded (429). Retrying in ${delay / 1000}s...`);
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                            delay *= 2; 
+                            continue;
+                        } else {
+                            throw new Error("تجاوز الحد الأقصى للمحاولات بسبب ضغط على الخادم.");
+                        }
+                    }
+
+                    const result = await response.json();
+                    const candidate = result?.candidates?.[0];
+                    const base64Data = candidate?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
+                    
+                    if (base64Data) {
+                        return `data:image/png;base64,${base64Data}`;
+                    } else {
+                        console.error("Image generation failed. Full API response result:", result);
+                        
+                        const safetyReason = candidate?.finishReason;
+                        const rejectionMessage = candidate?.content?.parts?.[0]?.text;
+
+                        if (safetyReason && safetyReason !== 'STOP' && safetyReason !== 'MAX_TOKENS') {
+                            throw new Error(`فشل التوليد: تم رفض الطلب لأسباب تتعلق بالسياسات. سبب الإنهاء: ${safetyReason}.`);
+                        } else if (rejectionMessage) {
+                            // If it returned a text message (e.g., explaining why it failed)
+                            throw new Error(`فشل المولد: ${rejectionMessage}`);
+                        } else {
+                            // Default error if no clear rejection reason is found
+                            throw new Error("فشل المولد في إنتاج الصورة. قد يكون الوصف غير مقبول أو الصورة المرفوعة غير واضحة. حاول تغيير الوصف أو إزالة الصورة المرفوعة.");
+                        }
+                    }
+                } catch (error) {
+                    if (i < maxRetries - 1 && error.message.includes("Failed to fetch")) {
+                         console.log(`Network error. Retrying in ${delay / 1000}s...`);
+                         await new Promise(resolve => setTimeout(resolve, delay));
+                         delay *= 2; 
+                         continue;
+                    }
+                    throw error; 
+                }
+            }
+        }
+
+        /**
+         * دالة عامة لتوليد النص مع منطق إعادة المحاولة.
+         */
+        async function generateTextWithRetry(parts, systemPrompt, maxRetries = 5, delay = 1000) {
+            // ** التحقق من مفتاح API قبل أي محاولة اتصال **
+            if (apiKey === "YOUR_GEMINI_API_KEY_HERE" || apiKey.length < 10) {
+                 throw new Error("لم يتم تحديد مفتاح API. الرجاء وضع مفتاحك الخاص في المتغير 'apiKey' ضمن الكود.");
+            }
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${LLM_TEXT_MODEL}:generateContent?key=${apiKey}`;
+
+            const payload = {
+                contents: [{ role: "user", parts: parts }],
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                },
+            };
+
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok && response.status !== 429) {
+                        const errorData = await response.json();
+                        // تحسين إظهار رسالة 403 (عدم وجود مفتاح)
+                        if (response.status === 403 && errorData.error?.message?.includes("unregistered callers")) {
+                            throw new Error("فشل الاتصال: رمز الخطأ 403. تأكد من أن مفتاح API الذي وضعته في الكود صحيح ومفعَّل.");
+                        }
+                        throw new Error(`LLM Error: ${response.status} - ${errorData.error?.message || response.statusText}`);
+                    }
+
+                    if (response.status === 429) {
+                        if (i < maxRetries - 1) {
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                            delay *= 2; 
+                            continue;
+                        } else {
+                            throw new Error("تجاوز الحد الأقصى للمحاولات.");
+                        }
+                    }
+
+                    const result = await response.json();
+                    return result?.candidates?.[0]?.content?.parts?.[0]?.text || "فشل توليد النص.";
+
+                } catch (error) {
+                    if (i < maxRetries - 1 && error.message.includes("Failed to fetch")) {
+                         await new Promise(resolve => setTimeout(resolve, delay));
+                         delay *= 2; 
+                         continue;
+                    }
+                    throw error; 
+                }
+            }
+        }
+
+
+        // *************** New Feature 1: Prompt Enhancement ***************
+
+        async function enhancePrompt() {
+            let currentPrompt = promptInput.value.trim();
+
+            if (!currentPrompt || currentPrompt.length < 3) {
+                displayError("الرجاء كتابة فكرة بسيطة أولاً ليتم تحسينها.");
+                return;
+            }
+            
+             if (apiKey === "YOUR_GEMINI_API_KEY_HERE" || apiKey.length < 10) {
+                 displayError("الرجاء تحديث ملف HTML ووضع مفتاح API الخاص بك للوصول إلى هذه الميزة.");
+                 return;
+            }
+
+
+            enhancePromptBtn.disabled = true;
+            enhancePromptBtn.textContent = "جاري التحسين...";
+            displayError(null);
+
+            const systemPrompt = "أنت مهندس موجه (Prompt Engineer) محترف ومتخصص في توليد الصور بالذكاء الاصطناعي. مهمتك هي أخذ وصف بسيط (برومبت) وتحويله إلى وصف فني وغني بالتفاصيل، مع التركيز على الأسلوب الفني (مثل: فن رقمي، واقعي، فانتازيا، بكسل آرت)، الألوان، والإضاءة، مما يزيد من جودة الصورة المولدة. يجب أن يكون الناتج نصًا واحدًا، بدون مقدمات أو شرح.";
+            
+            try {
+                const enhancedPrompt = await generateTextWithRetry([{ text: currentPrompt }], systemPrompt);
+                promptInput.value = enhancedPrompt.trim();
+                displayError(null);
+            } catch (error) {
+                console.error("Prompt Enhancement Error:", error);
+                displayError("فشل تحسين الوصف: " + (error.message || "خطأ في الاتصال بالنموذج."));
+            } finally {
+                enhancePromptBtn.disabled = false;
+                enhancePromptBtn.innerHTML = '<i class="fas fa-sparkles ml-2"></i> ✨ اقتراح وصف مُحسّن لإنشاء صورة';
+            }
+        }
+
+
+        // *************** New Feature 2: Image Analysis and Captioning ***************
+
+        async function analyzeImage() {
+            analysisOutput.classList.remove('hidden');
+            analysisText.classList.add('hidden');
+            analysisLoading.classList.remove('hidden');
+            analyzeImageBtn.disabled = true;
+            displayError(null);
+            
+            if (apiKey === "YOUR_GEMINI_API_KEY_HERE" || apiKey.length < 10) {
+                 displayError("الرجاء تحديث ملف HTML ووضع مفتاح API الخاص بك للوصول إلى هذه الميزة.");
+                 return;
+            }
+
+            let imageInput = null;
+            let analysisPrompt = "حلل هذه الصورة بالتفصيل. اكتب فقرة تحليلية موجزة تصف الأسلوب الفني، والمحتوى، والمشاعر التي تثيرها. ثم، قم بإنشاء 3 عناوين (Captions) إبداعية وجذابة لاستخدامها على وسائل التواصل الاجتماعي. يجب أن يكون الناتج في شكل قائمة منقّطة (Markdown list): التحليل كأول عنصر، تليه العناوين الثلاثة.";
+            
+            // تحقق ما إذا كانت هناك صورة معروضة (مولدة أو تم رفعها)
+            const generatedBase64 = generatedImage.src.split(',')[1];
+            
+            if (generatedImage.src && generatedImage.src.startsWith('data:image/') && generatedBase64) {
+                 imageInput = {
+                    mimeType: generatedImage.src.split(':')[1].split(';')[0],
+                    data: generatedBase64
+                };
+            } else if (base64Image1) { // Fallback to Image 1
+                imageInput = base64Image1;
+            } else if (base64Image2) { // Fallback to Image 2
+                imageInput = base64Image2;
+            } else {
+                displayError("يرجى توليد أو رفع صورة واحدة على الأقل لتحليلها.");
+                analysisOutput.classList.add('hidden');
+                analysisLoading.classList.add('hidden');
+                analyzeImageBtn.disabled = false;
+                return;
+            }
+
+            const parts = [
+                { text: analysisPrompt },
+                { inlineData: { mimeType: imageInput.mimeType, data: imageInput.data } }
+            ];
+
+            try {
+                const resultText = await generateTextWithRetry(parts, "أنت خبير في الفن المرئي وكتابة المحتوى التسويقي.");
+                
+                // تحويل النص من Markdown إلى HTML بسيط للعرض
+                const htmlText = marked.parse(resultText);
+
+                analysisText.innerHTML = htmlText;
+                analysisText.classList.remove('hidden');
+            } catch (error) {
+                console.error("Image Analysis Error:", error);
+                analysisText.textContent = "عذراً، حدث خطأ أثناء تحليل الصورة.";
+                analysisText.classList.remove('hidden');
+            } finally {
+                analysisLoading.classList.add('hidden');
+                analyzeImageBtn.disabled = false;
+            }
+        }
+
+
+        // *************** معالج الإرسال (Submit Handler) ***************
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const prompt = promptInput.value.trim();
+            displayError(null); 
+            analysisOutput.classList.add('hidden'); // إخفاء التحليل السابق
+            
+            // تحقق: يجب أن يكون هناك إما وصف (أكثر من 5 أحرف) أو صورة واحدة على الأقل
+            if (prompt.length < 5 && !base64Image1 && !base64Image2) {
+                displayError("الرجاء إدخال وصف تفصيلي (5 أحرف على الأقل)، أو رفع صورة واحدة على الأقل للبدء بالدمج/التعديل.");
+                return;
+            }
+
+            // تحقق من المفتاح قبل محاولة الاتصال
+            if (apiKey === "YOUR_GEMINI_API_KEY_HERE" || apiKey.length < 10) {
+                 displayError("فشل الاتصال: رمز الخطأ 403. تأكد من أنك قمت بلصق مفتاح API الخاص بك في المتغير 'apiKey' ضمن الكود المصدري.");
+                 return;
+            }
+            
+
+            // إعداد واجهة المستخدم لحالة التحميل
+            loadingIndicator.classList.remove('hidden');
+            imageOutputContainer.classList.add('hidden');
+            placeholderMessage.classList.add('hidden');
+            generateButton.disabled = true;
+            generateButton.textContent = "جاري التوليد/الدمج...";
+
+            try {
+                // استدعاء دالة توليد الصورة مع التراجع الأُسي وإرسال كلتا الصورتين
+                const imageUrl = await generateImageWithRetry(prompt, base64Image1, base64Image2);
+                
+                // عرض الصورة الناتجة
+                generatedImage.src = imageUrl;
+                imageOutputContainer.classList.remove('hidden');
+
+            } catch (error) {
+                // عرض أي خطأ حدث أثناء التوليد
+                console.error("Image Generation/Editing Error:", error);
+                displayError(error.message || "حدث خطأ غير متوقع أثناء عملية التوليد/الدمج.");
+                placeholderMessage.classList.remove('hidden'); 
+
+            } finally {
+                // إعادة واجهة المستخدم لوضعها الطبيعي
+                loadingIndicator.classList.add('hidden');
+                generateButton.disabled = false;
+                generateButton.innerHTML = '<i class="fas fa-wand-magic-sparkles ml-2"></i> توليد/دمج الصور';
+            }
+        });
+        
+        // *************** Markdown Parser for Analysis Output ***************
+        // استخدام مكتبة marked.js لتحويل Markdown إلى HTML لتنسيق قائمة العناوين
+        const markedScript = document.createElement('script');
+        markedScript.src = "https://cdn.jsdelivr.net/npm/marked/marked.min.js";
+        document.head.appendChild(markedScript);
+
+
+        // *************** إضافة معالجات الأحداث للميزات الجديدة ***************
+        enhancePromptBtn.addEventListener('click', enhancePrompt);
+        analyzeImageBtn.addEventListener('click', analyzeImage);
+
+
+        // *************** معالج شاشة الترحيب ***************
+        window.onload = function() {
+            setTimeout(() => {
+                // 1. إخفاء شاشة الترحيب
+                if (splashScreen) {
+                    splashScreen.style.opacity = '0';
+                    setTimeout(() => {
+                        splashScreen.style.display = 'none';
+                        // 2. إظهار محتوى التطبيق الرئيسي
+                        if (mainAppContent) {
+                            mainAppContent.style.opacity = '1';
+                        }
+                    }, 500); // 500ms for CSS transition to finish
+                }
+            }, 2000); // 2000ms delay for the welcome screen display
+        };
+
+
+    </script>
+</body>
+</html>
